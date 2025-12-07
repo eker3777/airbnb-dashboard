@@ -2,28 +2,51 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 import pandas as pd
+import plotly.io as pio
+import plotly.express as px
+import plotly.graph_objects as go
+import json
+from datetime import datetime
+import re
+
 
 # --- 1. SETUP & CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="NYC Airbnb Dashboard")
 
+#get current directory
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Define paths to where you saved your figures
-# Adjust these paths if your notebook saved them elsewhere!
-TIME_SERIES_DIR = "Time Series"
-MAPS_DIR = "Maps"
+TIME_SERIES_DIR = os.path.join(CURRENT_DIR, "Time Series")
+MAPS_DIR = os.path.join(CURRENT_DIR, "Maps")
+HOOD_DIR = os.path.join(CURRENT_DIR, "Neighborhoods")
+MODEL_DIR = os.path.join(CURRENT_DIR, "Modelling")
 
 st.title("🗽 NYC Airbnb Market Analysis")
 st.markdown("""
 **Exploring the hidden drivers of value, risk, and experience in the New York City short-term rental market.**
-*By the Data Science Team*
+*By Omarion, Anupam, Matthew & Elliott*
 """)
 
 # --- 2. HELPER FUNCTIONS ---
-def display_html_file(file_path, height=600, width=1000, scrolling=False, animation_duration=50):
-    """Reads an HTML file and displays it in the Streamlit app with robust error handling and responsiveness."""
+
+def display_html_file(file_path, height=600, width=None, scrolling=True, animation_duration=50):
+    """
+    Reads an HTML file (standard Plotly charts), strips internal height restrictions,
+    and forces it to fill the Streamlit component area.
+    """
+    # 1. Path Verification
     if not os.path.exists(file_path):
-        # Try looking in the root or other common folders if not found
         filename = os.path.basename(file_path)
-        alt_paths = [filename, os.path.join("Figs", filename), os.path.join("Time Series", filename)]
+        # Fallback search in common folders
+        alt_paths = [
+            os.path.join(CURRENT_DIR, filename), 
+            os.path.join(TIME_SERIES_DIR, filename), 
+            os.path.join(MAPS_DIR, filename),
+            os.path.join(HOOD_DIR, filename),
+            os.path.join(MODEL_DIR, filename),
+        ]
+        
         found = False
         for p in alt_paths:
             if os.path.exists(p):
@@ -32,48 +55,45 @@ def display_html_file(file_path, height=600, width=1000, scrolling=False, animat
                 break
         
         if not found:
-            st.warning(f"⚠️ Plot not found: `{filename}`. Please ensure it is saved in the directory.")
+            st.warning(f"⚠️ Chart not found: `{filename}`")
             return
 
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
             
-            import re
-            import json
-            
-            # Fix animation speed for specific charts
+            # 2. Animation Speed Logic
             if "animated" in file_path:
-                # Robustly find and modify the Plotly animation settings
                 match = re.search(r'Plotly\.newPlot\((.*)\);', html_content, re.DOTALL)
                 if match:
-                    # Extract the arguments string (div, data, layout, config)
-                    args_str = match.group(1)
-                    # Find the layout JSON object specifically
-                    # It's the third argument, starting with '{' and containing 'updatemenus'
+                    # Regex to find the layout dict specifically containing updatemenus
                     layout_match = re.search(r'Plotly\.newPlot\([^,]+,\s*\[.*?\],\s*({.*"updatemenus":.*}),\s*{.*}\);', html_content, re.DOTALL)
                     if layout_match:
                         layout_str = layout_match.group(1)
-                        layout_json = json.loads(layout_str)
+                        try:
+                            layout_json = json.loads(layout_str)
+                            # Update Button Speed
+                            layout_json['updatemenus'][0]['buttons'][0]['args'][1]['frame']['duration'] = animation_duration
+                            layout_json['updatemenus'][0]['buttons'][0]['args'][1]['transition']['duration'] = 0
+                            # Update Slider Speed
+                            if 'sliders' in layout_json:
+                                for step in layout_json['sliders'][0]['steps']:
+                                    step['args'][1]['frame']['duration'] = animation_duration
+                                    step['args'][1]['transition']['duration'] = 0
+                            
+                            html_content = html_content.replace(layout_str, json.dumps(layout_json))
+                        except json.JSONDecodeError:
+                            pass 
 
-                        # 1. Modify the PLAY BUTTON speed (for manual play)
-                        layout_json['updatemenus'][0]['buttons'][0]['args'][1]['frame']['duration'] = animation_duration
-                        layout_json['updatemenus'][0]['buttons'][0]['args'][1]['transition']['duration'] = 0
-
-                        # 2. Modify the SLIDER steps speed (for autoplay)
-                        for step in layout_json['sliders'][0]['steps']:
-                            step['args'][1]['frame']['duration'] = animation_duration
-                            step['args'][1]['transition']['duration'] = 0
-
-                        # Replace the old layout with the modified one
-                        html_content = html_content.replace(layout_str, json.dumps(layout_json))
-
-            # Make the chart responsive by removing fixed dimensions and adding scaling CSS
-            # Remove fixed height/width from SVG tags
+            # 3. FORCE RESPONSIVENESS (Restored from your original code)
+            # Remove fixed height/width attributes from SVG tags so they can scale
             html_content = re.sub(r'(<svg[^>]*)\s+height="[^"]*"', r'\1', html_content)
             html_content = re.sub(r'(<svg[^>]*)\s+width="[^"]*"', r'\1', html_content)
             
-            # Inject CSS to force full responsiveness and scaling
+            # Handle max-width logic safely for CSS string
+            max_width_css = f"max-width: {width}px !important;" if width else "max-width: 100% !important;"
+
+            # Inject CSS to force the plot to take up 100% of the iframe
             css_injection = f"""
             <style>
                 html, body {{
@@ -83,12 +103,14 @@ def display_html_file(file_path, height=600, width=1000, scrolling=False, animat
                     padding: 0;
                     overflow: hidden;
                 }}
+                /* Force the container div to fill the height */
                 .main-svg, .plotly-graph-div {{
                     height: 100% !important;
                     width: 100% !important;
-                    max-height: {height}px !important;  /* Cap at container height */
-                    max-width: {width}px !important;    /* Cap at container width */
+                    max-height: {height}px !important;
+                    {max_width_css}
                 }}
+                /* Force the SVG to fill the height */
                 svg {{
                     height: auto !important;
                     width: auto !important;
@@ -97,21 +119,109 @@ def display_html_file(file_path, height=600, width=1000, scrolling=False, animat
                 }}
             </style>
             """
-            full_html = css_injection + html_content
             
+            # Inject CSS
+            if "</head>" in html_content:
+                full_html = html_content.replace("</head>", f"{css_injection}</head>")
+            else:
+                full_html = css_injection + html_content
+            
+            # 4. Render
             components.html(full_html, height=height, width=width, scrolling=scrolling)
+            
     except Exception as e:
         st.error(f"Error reading file: {e}")
 
+def display_html_map(file_path, height=600, width=None):
+    """
+    Specialized function for displaying Plotly HTML fragments (Maps).
+    Wraps the raw DIV in a full HTML structure and enforces responsive sizing.
+    """
+    # 1. Path Verification
+    if not os.path.exists(file_path):
+        filename = os.path.basename(file_path)
+        alt_paths = [
+            os.path.join(CURRENT_DIR, "Maps", filename),
+        ]
+        found = False
+        for p in alt_paths:
+            if os.path.exists(p):
+                file_path = p
+                found = True
+                break
+        
+        if not found:
+            st.warning(f"⚠️ Map not found: `{filename}`")
+            return
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            html_fragment = f.read()
+
+        # 2. REGEX CLEANUP
+        # Strip inline style dimensions (e.g., style="height:450px;")
+        import re
+        html_fragment = re.sub(r'height:\s*[0-9]+px;?', '', html_fragment)
+        html_fragment = re.sub(r'width:\s*[0-9]+px;?', '', html_fragment)
+        
+        # Also strip attribute dimensions just in case (e.g., height="450")
+        html_fragment = re.sub(r'(<svg[^>]*)\s+height="[^"]*"', r'\1', html_fragment)
+        html_fragment = re.sub(r'(<svg[^>]*)\s+width="[^"]*"', r'\1', html_fragment)
+
+        # 3. ROBUST CSS WRAPPER (Aligned with display_html_file)
+        max_width_css = f"max-width: {width}px !important;" if width else "max-width: 100% !important;"
+
+        full_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                html, body {{
+                    height: 100%;
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
+                    overflow: hidden;
+                }}
+                /* Force the container div to fill the height, capped at the iframe height */
+                .main-svg, .plotly-graph-div {{
+                    height: 100% !important;
+                    width: 100% !important;
+                    max-height: {height}px !important;
+                    {max_width_css}
+                }}
+                /* Ensure SVGs inside scale correctly */
+                svg {{
+                    height: auto !important;
+                    width: auto !important;
+                    max-height: 100% !important;
+                    max-width: 100% !important;
+                }}
+            </style>
+        </head>
+        <body>
+            {html_fragment}
+        </body>
+        </html>
+        """
+
+        # 4. RENDER
+        # Width=None lets Streamlit handle the responsive column width
+        components.html(full_html, height=height, width=width, scrolling=False)
+
+    except Exception as e:
+        st.error(f"Error reading map file: {e}")
+        
 # --- 3. SIDEBAR NAVIGATION ---
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to section:", 
-    ["Overview & Trends", "Neighborhood Vibe", "Risk & Quality", "Value Hunter", "Host Strategy"]
+    ["Review Trends", "Borough & Neighborhood Analysis", "Modelling"]
 )
 
 # --- 4. MAIN CONTENT ---
 
-if page == "Overview & Trends":
+if page == "Review Trends":
     st.header("📈 Market Overview & Seasonality")
     
     st.subheader("Evolution of the NYC Market")
@@ -138,87 +248,100 @@ if page == "Overview & Trends":
     
     st.subheader("Monthly Odds Ratios (OLS Model)")
     display_html_file(os.path.join(TIME_SERIES_DIR, "ols_monthly_odds_ratios.html"), height=500)
-        
-    st.subheader("Growth Forecast (Borough Level)")
-    st.markdown("Projected growth trends for each borough (Log Scale).")
-    # If you saved the static image for this one
-    if os.path.exists(os.path.join(FIGS_DIR, "borough_forecast_log.png")):
-        st.image(os.path.join(FIGS_DIR, "borough_forecast_log.png"))
 
-elif page == "Neighborhood Vibe":
-    st.header("vibes ✨ Neighborhood Experience")
-    st.markdown("Going beyond price to understand the *feeling* of each area.")
+elif page == "Borough & Neighborhood Analysis":
+    st.header("🏙️ Borough & Neighborhood Analysis")
+    st.subheader("Borough Pricing Dynamics")
+    display_html_file(os.path.join(HOOD_DIR, "borough_value_map.html"), height=600)
     
     st.subheader("Safety")
-    st.markdown("Mentions concerning negatove perceptions of saftey")
-    display_html_file(os.path.join(MAPS_DIR, "safety_map.html"), height=600)
+    display_html_map(os.path.join(MAPS_DIR, "safety_map.html"))
     
-    with col1:
-        st.subheader("The Truth Map: Overrated vs. Underrated")
-        st.markdown("**Red:** Star Ratings > Text Sentiment (Inflated)\n**Blue:** Text Sentiment > Star Ratings (Tough Critics)")
-        display_html_file(os.path.join(FIGS_DIR, "sentiment_gap_map.html"), height=600) # Assuming you saved this map name
-
-
-    st.subheader("The Insomniac Index")
-    st.markdown("Mapping Street Noise vs. Building Noise to find 'Silent Sanctuaries'.")
-    display_html_file(os.path.join(FIGS_DIR, "noise_scatter.html"), height=700)
-
-elif page == "Risk & Quality":
-    st.header("🪳 Risk & Quality Assurance")
-    st.markdown("Quantifying the hidden costs of booking: Pests, Dirt, and Scams.")
+    st.subheader("Pests")
+    display_html_map(os.path.join(MAPS_DIR, "pest_heatmap.html"))
     
-    col1, col2 = st.columns(2)
+    st.subheader("Noise Levels")
+    col1, col2 = st.columns([1,1])
     with col1:
-        st.subheader("The Pest Heatmap")
-        st.markdown("% of listings with pest/vermin complaints.")
-        display_html_file(os.path.join(FIGS_DIR, "pest_heatmap.html"), height=600)
-        
+        display_html_file(os.path.join(HOOD_DIR, "noise_scatter.html"), height=600)
     with col2:
-        st.subheader("Scam Risk by Host Tier")
-        st.markdown("Are professional hosts actually safer?")
-        display_html_file(os.path.join(FIGS_DIR, "scam_risk_bar.html"), height=600)
+        display_html_file(os.path.join(HOOD_DIR, "noise_table.html"), height=600)
         
-    st.subheader("The Dirty Discount")
-    st.markdown("Price penalty for listings with cleanliness complaints.")
-    display_html_file(os.path.join(FIGS_DIR, "dirty_discount_box.html"), height=500)
-
-elif page == "Value Hunter":
-    st.header("💰 The Value Hunter")
-    st.markdown("Finding the 'Smart Money' listings using our custom Z-Scores.")
-    
-    col1, col2 = st.columns(2)
+    st.subheader("Proximity to Attractions")
+    st.markdown("How price and ratings vary with distance to Times Square and Central Park.")
+    col1, col2 = st.columns([1,1])
     with col1:
-        st.subheader("Borough Value Gap")
-        st.markdown("Which boroughs are 'Rip-offs' (Red) vs 'Steals' (Green) relative to NYC average?")
-        display_html_file(os.path.join(FIGS_DIR, "borough_value_bar.html"), height=600)
-        
+        st.markdown("**Proximity**")
+        display_html_file(os.path.join(HOOD_DIR, "luxury_premium_scatter.html"), height=800)
     with col2:
-        st.subheader("The Momentum Leaderboard")
-        st.markdown("Top 10 Trending vs. Cooling Neighborhoods.")
-        display_html_file(os.path.join(FIGS_DIR, "momentum_bar.html"), height=600)
+        st.markdown("**Rating**")
+        display_html_file(os.path.join(HOOD_DIR, "rating_distance_scatter.html"), height=800)   
         
-    st.subheader("🏆 The Perfect Stay Quadrant")
-    st.markdown("The Holy Grail: High Value Score + High Guest Happiness.")
-    display_html_file(os.path.join(FIGS_DIR, "perfect_stay_quadrant.html"), height=800)
+    st.subheader("Trending Neighborhoods")
+    st.markdown("Scored by **Momentum** which is defined as the rate of reviews in the last 30 days, over their long term monthly average. Adjusted to city median.")
+    display_html_file(os.path.join(HOOD_DIR, "hot_list.html"), height=600)
+    display_html_file(os.path.join(HOOD_DIR, "cold_list.html"), height=600)
     
-    st.subheader("The Luxury Premium Curve")
-    st.markdown("How much is an amenity point worth?")
-    display_html_file(os.path.join(FIGS_DIR, "luxury_premium_scatter.html"), height=600)
+        
+    st.header("The Rise of Corporate Hosts")
+    st.markdown("Mapping the concentration of corporate-owned listings across NYC neighborhoods. Corporate hosts are defined by having a high 'Empire Score'.")
+    st.markdown("**Empire Score** = Log(Listings) + Superhost Status + Instant Book")
+    st.subheader("Corporate Host Map")
+    display_html_map(os.path.join(MAPS_DIR, "corporate_invasion_map.html"), height=600)
+    st.subheader("Host Composition by Borough")
+    st.markdown("Percentage of listings by host type across boroughs.")
+    display_html_file(os.path.join(HOOD_DIR, "host_composition.html"), height=600)
+    st.subheader("Scam Risk by Host Tier")
+    st.markdown("Percentage of listings with mentions of 'scam' in reviews, segmented by host tier.")
+    display_html_file(os.path.join(HOOD_DIR, "scam_risk_host_tier.html"), height=500)
+    
 
-elif page == "Host Strategy":
-    st.header("🏢 Host Strategy & Market Structure")
+elif page == "Modelling":
+    st.header("Predictive Modelling")
+    st.subheader("Price & Last 365 Day Revenue Prediction Models")
+    st.markdown("Explore our XGBoost regression models designed to predict listing prices and annual revenue based on key features.")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("The Empire Invasion")
-        st.markdown("% of listings managed by Corporate/Multi-unit Hosts.")
-        display_html_file(os.path.join(FIGS_DIR, "empire_invasion_map.html"), height=600)
-        
-    with col2:
-        st.subheader("The Service Paradox")
-        st.markdown("Do Empires provide better service ratings than Amateurs?")
-        display_html_file(os.path.join(FIGS_DIR, "service_paradox_box.html"), height=600)
-        
-    st.subheader("The Money Map")
-    st.markdown("Revenue Efficiency: Which room types generate the most cash?")
-    display_html_file(os.path.join(FIGS_DIR, "revenue_efficiency_bar.html"), height=700)
+    st.markdown("""
+    **Feature Summary**
+
+    **Numeric Features**  
+    - **Physical Attributes (e.g., beds & baths):** 'minimum_nights', 'maximum_nights', 'bedrooms', 'beds', 'bathrooms', 'accommodates', 'availability_90'  
+    - **Review-Based Metrics:** 'review_score_composite', 'number_of_reviews'  
+    - **Sentiment-Driven Scores (derived from NLP using VADER sentiment analysis):** 'amenity_score', 'empire_score', 'booking_momentum', 'Loc_Subway_score', 'Loc_Safety_score', 'Noise_External_score', 'Noise_Internal_score', 'Prop_Cleanliness_score', 'Host_Service_score'  
+
+    We selected numeric features based on domain logic and which features we expected to influence price or revenue.
+
+    **Categorical Variables**  
+    - 'room_type'  
+    - 'property_type'  
+    - 'Neighbourhood_cleansed'  
+    - 'Neighbourhood_group_cleansed'  
+
+    These were later one-hot encoded by the model pipeline.  
+
+    **Flag Variables (Binary Indicators)**  
+    - 'has_dealbreaker'  
+    - 'Risk_Pests_neg_flag'  
+    - 'Risk_Scam_neg_flag'  
+    - 'is_superhost'  
+    - 'is_instant'  
+    - 'is_licensed'  
+
+    These add important sentiment-driven signals and indicators of trust and convenience that visitors can see regarding the host on the platform.
+    """)
+    
+    st.subheader("Price Prediction Model Performance")
+    #Display PNG File of SHAP Plots
+    st.image(os.path.join(MODEL_DIR, "SHAP Price.png"), caption="SHAP Plot for Price Prediction Model",width=800)
+    st.markdown("""
+    **SHAP Plot Summary**   
+    Targets listing price. The most impactful variables are the Manhattan neighborhood group, minimum nights, accommodates and private room type.
+    """)
+    
+    st.subheader("Revenue Prediction Model Performance")
+    st.image(os.path.join(MODEL_DIR, "SHAP Revenue.png"), caption="SHAP Plot for Revenue Prediction Model", width=800)
+    st.markdown("""
+    **SHAP Plot Summary**   
+    Targets last 365-day revenue. The most impactful variables are Host Service Score, composite review score and cleanliness score.
+    """)
+    
