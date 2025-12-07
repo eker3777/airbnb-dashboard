@@ -21,6 +21,7 @@ TIME_SERIES_DIR = os.path.join(CURRENT_DIR, "Time Series")
 MAPS_DIR = os.path.join(CURRENT_DIR, "Maps")
 HOOD_DIR = os.path.join(CURRENT_DIR, "Neighborhoods")
 MODEL_DIR = os.path.join(CURRENT_DIR, "Modelling")
+SUPPLY_DIR = os.path.join(CURRENT_DIR, "Supply") 
 
 st.title("🗽 NYC Airbnb Market Analysis")
 st.markdown("""
@@ -216,7 +217,7 @@ def display_html_map(file_path, height=600, width=None):
 # --- 3. SIDEBAR NAVIGATION ---
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to section:", 
-    ["Review Trends", "Borough & Neighborhood Analysis", "Modelling"]
+    ["Review Trends", "Supply and Demand Dynamics", "Borough & Neighborhood Analysis", "Modelling"]
 )
 
 # --- 4. MAIN CONTENT ---
@@ -248,6 +249,28 @@ if page == "Review Trends":
     
     st.subheader("Monthly Odds Ratios (OLS Model)")
     display_html_file(os.path.join(TIME_SERIES_DIR, "ols_monthly_odds_ratios.html"), height=500)
+    
+elif page == "Supply and Demand Dynamics":
+    st.header("🏘️ Supply and Demand Dynamics")
+    st.subheader("Zombie Listings")
+    st.markdown("Listings that remain active on the platform but receive zero reviews over a prolonged period.")
+    st.image(os.path.join(SUPPLY_DIR, "zombie.png"), caption="Zombie Listings by Borough", width=800)
+    
+    st.subheader("Review Count vs Intensity")
+    st.markdown("Which Borough gets more reviews per listing?")
+    st.image(os.path.join(SUPPLY_DIR, "intensity.png"), caption="Review Count vs Intensity", width=800)
+    
+    st.subheader("Listing Growth vs Average Revenue Per Month")
+    st.markdown("Analyzing how the growth in listing numbers correlates with average revenue per month across boroughs.")
+    st.image(os.path.join(SUPPLY_DIR, "growth_rev.png"), caption="Listing Growth vs Average Revenue Per Month", width=500)
+    
+    st.subheader("Near Term Vacancy Rates")
+    st.markdown("Which boroughs have the highest vacancy rates in the next 30 days?")
+    st.image(os.path.join(SUPPLY_DIR, "vacancy.png"), caption="Near Term Vacancy Rates by Borough", width=800)
+    
+    st.subheader("Freshness of Listings")
+    st.markdown("What percent of listings have their first review in the last 6 months?")
+    st.image(os.path.join(SUPPLY_DIR, "freshness.png"), caption="Freshness of Listings by Borough", width=800)
 
 elif page == "Borough & Neighborhood Analysis":
     st.header("🏙️ Borough & Neighborhood Analysis")
