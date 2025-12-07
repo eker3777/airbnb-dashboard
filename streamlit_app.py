@@ -354,6 +354,7 @@ elif page == "Modelling":
     """)
     
     st.subheader("Price Prediction Model Performance")
+    st.markdown("R² of .724, a MAE of $6,949 and a RMSE of $16,339 on the test set.")
     #Display PNG File of SHAP Plots
     st.image(os.path.join(MODEL_DIR, "SHAP Price.png"), caption="SHAP Plot for Price Prediction Model",width=800)
     st.markdown("""
@@ -362,6 +363,7 @@ elif page == "Modelling":
     """)
     
     st.subheader("Revenue Prediction Model Performance")
+    st.markdown("R² score of .704, a MAE of $11,400 and a RSME of $20,300 on the test set.")
     st.image(os.path.join(MODEL_DIR, "SHAP Revenue.png"), caption="SHAP Plot for Revenue Prediction Model", width=800)
     st.markdown("""
     **SHAP Plot Summary**   
