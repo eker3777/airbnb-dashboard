@@ -223,6 +223,7 @@ page = st.sidebar.radio("Go to section:",
 # --- 4. MAIN CONTENT ---
 
 if page == "Review Trends":
+    st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
     st.header("📈 Market Overview & Seasonality")
     
     st.subheader("Evolution of the NYC Market")
@@ -331,6 +332,7 @@ if page == "Review Trends":
         display_category(categories["Complaints & Issues"])
     
 elif page == "Supply and Demand Dynamics":
+    st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
     st.header("🏘️ Supply and Demand Dynamics")
     st.subheader("Zombie Listings")
     st.markdown("Listings that remain active on the platform but receive zero reviews over a prolonged period.")
@@ -353,6 +355,7 @@ elif page == "Supply and Demand Dynamics":
     st.image(os.path.join(SUPPLY_DIR, "freshness.png"), caption="Freshness of Listings by Borough", width=800)
 
 elif page == "Borough & Neighborhood Analysis":
+    st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
     st.header("🏙️ Borough & Neighborhood Analysis")
     st.subheader("Borough Pricing Dynamics")
     display_html_file(os.path.join(HOOD_DIR, "borough_value_map.html"), height=600)
@@ -400,6 +403,7 @@ elif page == "Borough & Neighborhood Analysis":
     
 
 elif page == "Modelling":
+    st.markdown('<script>window.scrollTo(0, 0);</script>', unsafe_allow_html=True)
     st.header("Predictive Modelling")
     st.subheader("Price & Last 365 Day Revenue Prediction Models")
     st.markdown("Explore our XGBoost regression models designed to predict listing prices and annual revenue based on key features.")
