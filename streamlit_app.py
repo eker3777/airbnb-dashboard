@@ -26,7 +26,7 @@ SUPPLY_DIR = os.path.join(CURRENT_DIR, "Supply")
 st.title("🗽 NYC Airbnb Market Analysis")
 st.markdown("""
 **Exploring the hidden drivers of value, risk, and experience in the New York City short-term rental market.**
-*By Omarion, Anupam, Matthew & Elliott*
+*By Omarion, Anupam, Matthew, Mehar & Elliott*
 """)
 
 # --- 2. HELPER FUNCTIONS ---
