@@ -248,7 +248,7 @@ if page == "Review Trends":
     st.subheader("Seasonality Patterns")
     display_html_file(os.path.join(TIME_SERIES_DIR, "seasonality_monthly_boxplot.html"), height=500)
     
-    st.subheader("Monthly Odds Ratios (OLS Model)")
+    st.subheader("Monthly Multiplicative Effect (OLS Model)")
     display_html_file(os.path.join(TIME_SERIES_DIR, "ols_monthly_odds_ratios.html"), height=500)
     
     # 1. Prepare Data Categorized by Section
