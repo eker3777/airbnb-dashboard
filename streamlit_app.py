@@ -250,6 +250,50 @@ if page == "Review Trends":
     st.subheader("Monthly Odds Ratios (OLS Model)")
     display_html_file(os.path.join(TIME_SERIES_DIR, "ols_monthly_odds_ratios.html"), height=500)
     
+        # 1. Prepare the Data
+    data = [
+        {"Topic Label": "-1_clean_comfortable_subway_close", "Count": 6699},
+        {"Topic Label": "2_clean_responsive_comfortable_helpful", "Count": 737},
+        {"Topic Label": "0_clean_comfortable_responsive_like", "Count": 224},
+        {"Topic Label": "4_hotel_staff_square_times square", "Count": 194},
+        {"Topic Label": "3_did_didnt_refund_told", "Count": 149},
+        {"Topic Label": "7_williamsburg_restaurants_manhattan_bars", "Count": 129},
+        {"Topic Label": "5_harlem_subway_close_central", "Count": 100},
+        {"Topic Label": "6_noise_loud_noisy_hear", "Count": 64},
+        {"Topic Label": "1_brooklyn_subway_manhattan_close", "Count": 63},
+        {"Topic Label": "8_david_anthony_amy_comfortable", "Count": 56},
+        {"Topic Label": "11_cat_cats_friendly_cute", "Count": 54},
+        {"Topic Label": "10_jfk_airport_close jfk_jfk airport", "Count": 52},
+        {"Topic Label": "13_beach_rockaway_close beach_boardwalk", "Count": 45},
+        {"Topic Label": "12_ferry_staten_staten island_island", "Count": 41},
+        {"Topic Label": "15_italy_chinatown_soho_chinatown italy", "Count": 37}
+    ]
+
+    # 2. Create DataFrame
+    df_topics = pd.DataFrame(data)
+
+    # 3. Display in Streamlit
+    st.subheader("Topic Counts Distribution")
+    st.caption("Ordered by Listing Count (Descending)")
+
+    st.dataframe(
+        df_topics,
+        column_config={
+            "Topic Label": st.column_config.TextColumn(
+                "Topic Cluster",
+                help="The BERTopic label derived from the top keywords",
+                width="large"
+            ),
+            "Count": st.column_config.NumberColumn(
+                "Listing Count",
+                help="Number of listings associated with this topic",
+                format="%d" # Display as integer (no commas by default, modify if needed)
+            )
+        },
+        hide_index=True,  # Hides the 0,1,2... index column for a cleaner look
+        use_container_width=True
+    )
+    
 elif page == "Supply and Demand Dynamics":
     st.header("🏘️ Supply and Demand Dynamics")
     st.subheader("Zombie Listings")
